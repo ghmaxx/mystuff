@@ -17,7 +17,7 @@ local trapDelay = 0.08
 local scriptActive = true -- ADDED: control whether script runs
 
 local aimbotDistance = 200
-local chargeUpTime = 0.51
+local chargeUpTime = 0.265
 
 print('ran script')
 
