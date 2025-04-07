@@ -295,7 +295,9 @@ TextChatService.OnIncomingMessage = function(message)
             end
         elseif msg == "/trap" then
             DoTrap()
-        elseif msg == "/shoot" or "/s" then
+        elseif msg == "/shoot" then
+            Shoot()
+        elseif msg = "/s" then
             Shoot()
         end
     end
