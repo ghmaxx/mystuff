@@ -16,6 +16,7 @@ local BGk = workspace:FindFirstChild("B")
 local trapDelay = 0.08
 local scriptActive = true
 local aimbotDistance = 200
+local aimbotShootTime = 0.265
 
 print('ran script')
 
@@ -256,7 +257,7 @@ local function Shoot()
 	end)
 
 	VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-	task.wait(1)
+	task.wait(aimbotShootTime)
 	VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
 
 	rotating = false
