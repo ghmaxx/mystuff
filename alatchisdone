@@ -1,0 +1,301 @@
+local Players = game.Players
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local TextChatService = game:GetService("TextChatService")
+
+local player = Players.LocalPlayer
+local MapFolder = workspace:WaitForChild("map")
+
+-- Goal references
+local GkBarrier = MapFolder:FindFirstChild("gkbarriar")
+local AGoal = MapFolder:FindFirstChild("Agoal")
+local BGoal = MapFolder:FindFirstChild("Bgoal")
+local AGk = workspace:FindFirstChild("A")
+local BGk = workspace:FindFirstChild("B")
+
+local trapDelay = 0.08
+local scriptActive = true -- ADDED: control whether script runs
+
+local aimbotDistance = 200
+
+print('ran script')
+
+local function isInGame()
+    if not scriptActive then return false end -- ADDED
+    local LocalCharacter = player.Character
+    if not LocalCharacter then return false end
+
+    local StateFolder = LocalCharacter:FindFirstChild("state")
+    if not StateFolder then return false end
+
+    local InGameValue = StateFolder:FindFirstChild("ingame")
+    if not InGameValue then return false end
+
+    return InGameValue.Value
+end
+
+local function DisableCollisionBoxes()
+    if not scriptActive then return end -- ADDED
+    if GkBarrier then
+        local ABarrier = GkBarrier:FindFirstChild("A")
+        local BBarrier = GkBarrier:FindFirstChild("B")
+
+        if ABarrier then ABarrier.CanCollide = false end
+        if BBarrier then BBarrier.CanCollide = false end
+    end
+
+    if AGoal then AGoal.CanCollide = false end
+    if BGoal then BGoal.CanCollide = false end
+end
+
+local function StealBall()
+    if not scriptActive then return end -- ADDED
+    local LocalCharacter = player.Character
+    local LocalHumanoidRootPart = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
+    local Football = workspace.Terrain:FindFirstChild("Ball")
+
+    if LocalHumanoidRootPart and Football then
+        LocalHumanoidRootPart.CFrame = CFrame.new(Football.Position + Vector3.new(0, 2, 0))
+        task.wait(0.1)
+    end
+
+    for _, OtherPlayer in pairs(Players:GetPlayers()) do
+        if OtherPlayer ~= player then
+            local OtherCharacter = OtherPlayer.Character
+            local OtherFootball = OtherCharacter and OtherCharacter:FindFirstChild("Ball")
+            local OtherRoot = OtherCharacter and OtherCharacter:FindFirstChild("HumanoidRootPart")
+
+            if OtherFootball and OtherRoot and LocalHumanoidRootPart then
+                LocalHumanoidRootPart.CFrame = OtherRoot.CFrame + Vector3.new(0, 2, 0)
+                task.wait(0.1)
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Q, false, game)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Q, false, game)
+                break
+            end
+        end
+    end
+end
+
+local function HasBall()
+    if not scriptActive then return false end -- ADDED
+    local LocalCharacter = player.Character
+    if not LocalCharacter then return false end
+
+    local BallInCharacter = LocalCharacter:FindFirstChild("Ball")
+    if BallInCharacter then return true end
+
+    local Football = workspace.Terrain:FindFirstChild("Ball")
+    if Football and Football:FindFirstChild("owner") then
+        return Football.owner.Value == player
+    end
+
+    return false
+end
+
+local function DoGoal()
+    if not scriptActive then return end -- ADDED
+    if not isInGame() then return end
+
+    DisableCollisionBoxes()
+
+    if not HasBall() then
+        StealBall()
+    end
+
+    local startTime = tick()
+    while not HasBall() and tick() - startTime < 2 do
+        StealBall()
+        task.wait(0.05)
+    end
+
+    if HasBall() then
+        local LocalCharacter = player.Character
+        local LocalRootPart = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
+        local Goal = player.Team and player.Team.Name == "A" and BGoal or AGoal
+
+        if not LocalRootPart or not Goal then return end
+
+        LocalRootPart.CFrame = Goal.CFrame
+        task.wait(0.1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    end
+end
+
+local function DoStealLoop()
+    if not scriptActive then return end -- ADDED
+    local active = true
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not active or not scriptActive then -- ADDED
+            conn:Disconnect()
+            return
+        end
+
+        local LocalCharacter = player.Character
+        local LocalHumanoidRootPart = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
+
+        for _, OtherPlayer in pairs(Players:GetPlayers()) do
+            if OtherPlayer ~= player then
+                local OtherCharacter = OtherPlayer.Character
+                local OtherFootball = OtherCharacter and OtherCharacter:FindFirstChild("Ball")
+                local OtherRoot = OtherCharacter and OtherCharacter:FindFirstChild("HumanoidRootPart")
+
+                if OtherFootball and OtherRoot and LocalHumanoidRootPart then
+                    LocalHumanoidRootPart.CFrame = OtherRoot.CFrame + Vector3.new(0, 2, 0)
+                    break
+                end
+            end
+        end
+    end)
+
+    task.delay(2, function()
+        active = false
+    end)
+end
+
+local function DoTrap()
+    if not scriptActive then return end
+    if not isInGame() then return end
+
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
+
+    task.wait(trapDelay)
+
+    local LocalCharacter = player.Character
+    local LocalHumanoidRootPart = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
+
+    if not LocalHumanoidRootPart then return end
+
+    local startTime = tick()
+    local glideDuration = 1.5
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        local now = tick()
+        if now - startTime > glideDuration then
+            conn:Disconnect()
+            return
+        end
+
+        local Football = workspace.Terrain:FindFirstChild("Ball")
+        if not Football then return end
+
+        local velocity = Football.AssemblyLinearVelocity
+        local speed = velocity.Magnitude
+
+        local followOffset
+        if speed > 1 then
+            -- Ball is moving: follow from behind
+            local direction = velocity.Unit
+            followOffset = direction * 2 + Vector3.new(0, 0.5, 0)
+        else
+            -- Ball is still or slow: just hover slightly above
+            followOffset = Vector3.new(0, 1.5, 0)
+        end
+
+        local targetPos = Football.Position + followOffset
+        local currentPos = LocalHumanoidRootPart.Position
+        local lerpedPos = currentPos:Lerp(targetPos, 0.2) -- Smooth movement
+        LocalHumanoidRootPart.CFrame = CFrame.new(lerpedPos)
+    end)
+end
+
+-- Shoot command
+local function Shoot()
+    if not scriptActive then return end
+    if not isInGame() then return end
+
+    print('req shoot')
+
+    local LocalCharacter = player.Character
+    local LocalHumanoidRootPart = LocalCharacter and LocalCharacter:FindFirstChild("HumanoidRootPart")
+    if not LocalHumanoidRootPart then return end
+
+    -- Determine target goal and opposing goalkeeper based on team
+    local targetGoal, opposingGK
+    if player.Team and player.Team.Name == "A" then
+        targetGoal = BGoal
+        opposingGK = BGk
+    else
+        targetGoal = AGoal
+        opposingGK = AGk
+    end
+
+    if not targetGoal or not opposingGK then return end
+
+    -- Goal parameters
+    local goalCFrame = targetGoal.CFrame
+    local goalSize = targetGoal.Size
+    local goalCenter = goalCFrame.Position
+    local goalRightVector = goalCFrame.RightVector
+
+    -- Calculate goal edges (left and right)
+    local halfWidth = goalSize.X / 2
+    local leftEdge = goalCenter - (goalRightVector * halfWidth)
+    local rightEdge = goalCenter + (goalRightVector * halfWidth)
+
+    -- Get goalkeeper position
+    local gkHRP = opposingGK:FindFirstChild("HumanoidRootPart")
+    if not gkHRP then return end
+
+    local gkOffset = (gkHRP.Position - goalCenter):Dot(goalRightVector)
+    local shootTarget = gkOffset >= 0 and leftEdge or rightEdge
+
+    -- Begin shooting (hold mouse)
+    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+
+    -- Force face direction while mouse is held
+    local holding = true
+    local connection
+    connection = RunService.RenderStepped:Connect(function()
+        if not holding or not scriptActive then
+            connection:Disconnect()
+            return
+        end
+        if LocalHumanoidRootPart then
+            LocalHumanoidRootPart.CFrame = CFrame.new(LocalHumanoidRootPart.Position, shootTarget)
+        end
+    end)
+
+    -- Hold mouse for 1 second
+    task.delay(.75, function()
+        holding = false
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    end)
+end
+
+
+
+
+-- Handle chat commands reliably using TextChatService
+TextChatService.OnIncomingMessage = function(message)
+    if message.TextSource and message.TextSource.UserId == player.UserId then
+        local msg = message.Text:lower()
+
+        if msg == "/deactivate" then
+            print("Deactivation requested")
+            scriptActive = false
+            print("Script deactivated.")
+            return
+        end
+
+        if not scriptActive then return end
+
+        if msg == "/goal" then
+            DoGoal()
+        elseif msg == "/steal" then
+            if isInGame() then
+                DisableCollisionBoxes()
+                StealBall()
+                DoStealLoop()
+            end
+        elseif msg == "/trap" then
+            DoTrap()
+        elseif msg == "/shoot" then
+            Shoot()
+        end
+    end
+end
