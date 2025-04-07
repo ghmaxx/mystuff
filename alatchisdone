@@ -17,6 +17,7 @@ local trapDelay = 0.08
 local scriptActive = true -- ADDED: control whether script runs
 
 local aimbotDistance = 200
+local chargeUpTime = 0.51
 
 print('ran script')
 
@@ -261,7 +262,7 @@ local function Shoot()
     end)
 
     -- Hold mouse for 1 second
-    task.delay(.75, function()
+    task.delay(chargeUpTime, function()
         holding = false
         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
     end)
