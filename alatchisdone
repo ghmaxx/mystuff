@@ -1,3 +1,7 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
 local Players = game.Players
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -17,8 +21,7 @@ local trapDelay = 0.08
 local scriptActive = true
 local aimbotDistance = 200
 local aimbotShootTime = 0.265
-
-print('ran script')
+local stealLoop = 1
 
 local function isInGame()
 	if not scriptActive then return false end
@@ -122,6 +125,8 @@ local function DoGoal()
 	end
 end
 
+DisableCollisionBoxes()
+
 local function DoStealLoop()
 	if not scriptActive then return end
 	local active = true
@@ -150,14 +155,35 @@ local function DoStealLoop()
 		end
 	end)
 
-	task.delay(2, function()
+	task.delay(stealLoop, function()
 		active = false
 	end)
+end
+
+local function findStyle(style)
+    local playerStyle = player:GetAttribute("style")
+    print(playerStyle)
+    if playerstyle ~= style then print("not using:", style) return false else print("using:", style) return true end
+end
+
+local function isCooldown(num)
+    local playerGui = player.PlayerGui
+    local Hotbar = playerGui.Hotbar.Backpack.Hotbar
+    local skill = Hotbar:FindFirstChild("skill"..num)
+    local onCooldown
+    if skill then
+        local scooldown = skill.Cooldown
+        if scooldown.Size ~= UDim2.new(1,0,0,0) then onCooldown = true else onCooldown = false end
+    end
+    print(onCooldown and "skill"..num.." is on cooldown" or "skill"..num.." is not on cooldown")
+    return onCooldown
 end
 
 local function DoTrap()
 	if not scriptActive then return end
 	if not isInGame() then return end
+    --if not findStyle("nagi") then return end
+    if isCooldown(2) then return end
 
 	VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
 	VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
@@ -266,74 +292,233 @@ local function Shoot()
 	end
 end
 
-local UserInputService = game:GetService("UserInputService")
+local Window = Fluent:CreateWindow({
+    Title = "Azure Latch " .. Fluent.Version,
+    SubTitle = "by ghmaxx",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
+})
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed or not scriptActive then return end
+--Fluent provides Lucide Icons https://lucide.dev/icons/ for the tabs, icons are optional
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "" }),
+    Keybinds = Window:AddTab({ Title = "Keybinds", Icon = "keyboard" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
 
-	if input.KeyCode == Enum.KeyCode.T then
-		DoTrap()
-	elseif input.KeyCode == Enum.KeyCode.Y then
-		if isInGame() then
-			DisableCollisionBoxes()
-			StealBall()
-			DoStealLoop()
-		end
-	elseif input.KeyCode == Enum.KeyCode.K then
-		DoGoal()
-	elseif input.KeyCode == Enum.KeyCode.V then
-		Shoot()
-	end
-end)
+local Options = Fluent.Options
+
+do
+    Fluent:Notify({
+        Title = "Warning",
+        Content = "Do not use this script on a main account, as if you are caught exploiting it will lead to an unappealable permanent ban.",
+        SubContent = "This will disappear in 10 seconds.", -- Optional
+        Duration = 10 -- Set to nil to make the notification not disappear
+    })
 
 
--- 🆕 TextChat Command Handling with /tp, /tpball, /tpp support
-TextChatService.OnIncomingMessage = function(message)
-	if message.TextSource and message.TextSource.UserId == player.UserId then
-		local msg = message.Text:lower()
-		local args = string.split(msg, " ")
 
-		if msg == "/deactivate" then
-			print("Deactivation requested")
-			scriptActive = false
-			print("Script deactivated.")
-			return
-		end
+    Tabs.Main:AddParagraph({
+        Title = "Information",
+        Content = "This section contains the main exploits.\nExpect improvements!"
+    })
 
-		if not scriptActive then return end
+    Tabs.Main:AddButton({
+        Title = "Goal",
+        Description = "Make a goal.",
+        Callback = function()
+            DoGoal()
+        end
+    })
 
-		if msg == "/goal" then
-			DoGoal()
-		elseif msg == "/steal" then
-			if isInGame() then
-				DisableCollisionBoxes()
-				StealBall()
-				DoStealLoop()
-			end
-		elseif msg == "/trap" then
-			DoTrap()
-		elseif msg == "/shoot" then
-			Shoot()
-		elseif msg == "/tpball" then
-			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-			local ball = workspace.Terrain:FindFirstChild("Ball")
-			if root and ball then
-				root.CFrame = ball.CFrame + Vector3.new(0, 0, 0)
-			end
+    Tabs.Main:AddButton({
+        Title = "Trap ball",
+        Description = "Control the ball.",
+        Callback = function()
+            DoTrap()
+        end
+    })
 
-		elseif args[1] == "/tp" and args[2] then
-			local targetName = args[2]
-			for _, plr in pairs(Players:GetPlayers()) do
-				if plr.Name:lower():sub(1, #targetName) == targetName then
-					local targetChar = plr.Character
-					local targetRoot = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-					local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-					if myRoot and targetRoot then
-						myRoot.CFrame = targetRoot.CFrame + Vector3.new(0, 3, 0)
-					end
-					break
-				end
-			end
-		end
-	end
+    Tabs.Main:AddButton({
+        Title = "Steal ball",
+        Description = "Steal the ball.",
+        Callback = function()
+            StealBall()
+        end
+    })
+
+    Tabs.Main:AddButton({
+        Title = "Shoot ball",
+        Description = "Shoot the ball (aim at goal).",
+        Callback = function()
+            Shoot()
+        end
+    })
+
+    local Toggle = Tabs.Main:AddToggle("CrowdToggle", {Title = "Crowd", Default = true })
+
+    Toggle:OnChanged(function()
+        print("Toggle changed:", Options.CrowdToggle.Value)
+        game.SoundService:FindFirstChild("football-crowd-3-69245").Playing = Options.CrowdToggle.Value
+    end)
+    
+    local CFWS = Tabs.Main:AddToggle("CFrameWS", {Title = "Enable CFrame Walkspeed", Default = false })
+
+    local CFWSS = Tabs.Main:AddSlider("Slider", {
+        Title = "CFrame Walkspeed",
+        Description = "Adjust the walkspeed",
+        Default = 1,
+        Min = 0,
+        Max = 5,
+        Rounding = 1,
+        Callback = function(Value)
+            print("Slider was changed:", Value)
+        end
+    })
+
+    local CFsliderv = 1
+
+    CFWSS:OnChanged(function(Value)
+        print("Slider changed:", Value)
+        CFsliderv = Value  
+    end)
+
+    CFWSS:SetValue(1)
+
+    CFWS:OnChanged(function()
+        print("Toggle changed:", Options.CFrameWS.Value)
+        task.spawn(function()
+            while Options.CFrameWS.Value == true do
+                game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame + game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame.lookVector * CFsliderv
+                wait()  
+            end
+        end)
+    end)
+
+    local GoalK = Tabs.Keybinds:AddKeybind("Keybind", {
+        Title = "Goal",
+        Mode = "Toggle", -- Always, Toggle, Hold
+        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+
+        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        Callback = function(Value)
+
+        end,
+    })
+
+    -- OnClick is only fired when you press the keybind and the mode is Toggle
+    -- Otherwise, you will have to use Keybind:GetState()
+    GoalK:OnClick(function()
+         DoGoal()
+    end)
+    GoalK:SetValue("none", "Toggle")
+
+    local TrapK = Tabs.Keybinds:AddKeybind("Keybind", {
+        Title = "Trap",
+        Mode = "Toggle", -- Always, Toggle, Hold
+        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+
+        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        Callback = function(Value)
+        end,
+    })
+
+    -- OnClick is only fired when you press the keybind and the mode is Toggle
+    -- Otherwise, you will have to use Keybind:GetState()
+    TrapK:OnClick(function()
+         DoTrap()
+    end)
+    TrapK:SetValue("none", "Toggle")
+
+    local StealK = Tabs.Keybinds:AddKeybind("Keybind", {
+        Title = "Steal",
+        Mode = "Toggle", -- Always, Toggle, Hold
+        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+
+        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        Callback = function(Value)
+
+        end,
+    })
+
+    -- OnClick is only fired when you press the keybind and the mode is Toggle
+    -- Otherwise, you will have to use Keybind:GetState()
+    StealK:OnClick(function()
+         StealBall()
+    end)
+    StealK:SetValue("none", "Toggle")
+    
+    local ShootK = Tabs.Keybinds:AddKeybind("Keybind", {
+        Title = "Aimbot Shot",
+        Mode = "Toggle", -- Always, Toggle, Hold
+        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+
+        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        Callback = function(Value)
+
+        end,
+    })
+
+    -- OnClick is only fired when you press the keybind and the mode is Toggle
+    -- Otherwise, you will have to use Keybind:GetState()
+    ShootK:OnClick(function()
+         Shoot()
+    end)
+    ShootK:SetValue("none", "Toggle")
+
+    local Input = Tabs.Main:AddInput("Input", {
+        Title = "Input",
+        Default = "Default",
+        Placeholder = "Placeholder",
+        Numeric = false, -- Only allows numbers
+        Finished = false, -- Only calls callback when you press enter
+        Callback = function(Value)
+            print("Input changed:", Value)
+        end
+    })
+
+    Input:OnChanged(function()
+        print("Input updated:", Input.Value)
+    end)
 end
+
+
+-- Addons:
+-- SaveManager (Allows you to have a configuration system)
+-- InterfaceManager (Allows you to have a interface managment system)
+
+-- Hand the library over to our managers
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
+SaveManager:IgnoreThemeSettings()
+
+-- You can add indexes of elements the save manager should ignore
+SaveManager:SetIgnoreIndexes({})
+
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
+InterfaceManager:SetFolder("FluentScriptHub")
+SaveManager:SetFolder("FluentScriptHub/specific-game")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+
+Window:SelectTab(1)
+
+Fluent:Notify({
+    Title = "Fluent",
+    Content = "The script has been loaded.",
+    Duration = 8
+})
+
+-- You can use the SaveManager:LoadAutoloadConfig() to load a config
+-- which has been marked to be one that auto loads!
+SaveManager:LoadAutoloadConfig()
