@@ -40,8 +40,8 @@ end
 local function DisableCollisionBoxes()
 	if not scriptActive then return end
 	if GkBarrier then
-		local ABarrier = GkBarrier:FindFirstChild("A")
-		local BBarrier = GkBarrier:FindFirstChild("B")
+		local ABarrier = GkBarrier:FindFirstChild("Abarriar")
+		local BBarrier = GkBarrier:FindFirstChild("Bbarriar")
 
 		if ABarrier then ABarrier.CanCollide = false end
 		if BBarrier then BBarrier.CanCollide = false end
@@ -49,6 +49,20 @@ local function DisableCollisionBoxes()
 
 	if AGoal then AGoal.CanCollide = false end
 	if BGoal then BGoal.CanCollide = false end
+end
+
+local function DisableCollisionBoxesC(cmd)
+	if not scriptActive then return end
+	if GkBarrier then
+		local ABarrier = GkBarrier:FindFirstChild("Abarriar")
+		local BBarrier = GkBarrier:FindFirstChild("Bbarriar")
+
+		if ABarrier then ABarrier.CanCollide = cmd end
+		if BBarrier then BBarrier.CanCollide = cmd end
+	end
+
+	if AGoal then AGoal.CanCollide = cmd end
+	if BGoal then BGoal.CanCollide = cmd end
 end
 
 local function StealBall()
@@ -359,6 +373,11 @@ do
     })
 
     local Toggle = Tabs.Main:AddToggle("CrowdToggle", {Title = "Crowd", Default = true })
+    local CollisionToggle = Tabs.Main:AddToggle("CollisionToggle", {Title = "Collision Boxes", Default = false })
+
+    CollisionToggle:OnChanged(function()
+        DisableCollisionBoxesC(Options.CollisionToggle.Value)
+    end)
 
     Toggle:OnChanged(function()
         print("Toggle changed:", Options.CrowdToggle.Value)
