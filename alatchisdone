@@ -10,6 +10,8 @@ local TextChatService = game:GetService("TextChatService")
 local player = Players.LocalPlayer
 local MapFolder = workspace:WaitForChild("map")
 
+_G.ALVERSION = "2.0.0"
+
 -- Goal references
 local GkBarrier = MapFolder:FindFirstChild("gkbarriar")
 local AGoal = MapFolder:FindFirstChild("Agoal")
@@ -544,11 +546,11 @@ local function Shoot()
 end
 
 local Window = Fluent:CreateWindow({
-    Title = "Azure Latch " .. Fluent.Version,
+    Title = "Azure Latch " .. _G.ALVERSION,
     SubTitle = "by ghmaxx",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
-    Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
+    Acrylic = false, -- The blur may be detectable, setting this to false disables blur entirely
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
 })
