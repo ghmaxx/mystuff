@@ -24,6 +24,8 @@ local camera = workspace.CurrentCamera
 local localPlayer = players.LocalPlayer
 local mouse = localPlayer:GetMouse()
 
+_G.ALVERSION = "2.0.0"
+
 local u10 = require(game.ReplicatedStorage.packets)
 
 local toggled = false
@@ -48,6 +50,7 @@ local maxDistance = 350
 local maxAutoballHeight = 0.7
 local metavisionColor = Color3.fromRGB(255, 105, 180)
 local metavisionDirection = true
+
 
 local function getNearestTarget(position)
 	local nearest = nil
@@ -596,11 +599,11 @@ local function Shoot()
 end
 
 local Window = Fluent:CreateWindow({
-    Title = "Azure Latch " .. Fluent.Version,
+    Title = "Azure Latch " .. _G.ALVERSION,
     SubTitle = "by ghmaxx",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
-    Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
+    Acrylic = false, -- The blur may be detectable, setting this to false disables blur entirely
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
 })
