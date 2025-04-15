@@ -487,7 +487,7 @@ local function toggleEffect()
         metavision:Play()
 
 		for _, player in pairs(players:GetPlayers()) do
-			if player ~= localPlayer and player.Team == localPlayer.Team then
+			if player ~= localPlayer then
 				createHighlight(player)
 				createIndicator(player)
 			end
