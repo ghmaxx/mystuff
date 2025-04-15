@@ -17,11 +17,35 @@ local BGoal = MapFolder:FindFirstChild("Bgoal")
 local AGk = workspace:FindFirstChild("A")
 local BGk = workspace:FindFirstChild("B")
 
+local uis = game:GetService("UserInputService")
+local tweenService = game:GetService("TweenService")
+local players = game:GetService("Players")
+local camera = workspace.CurrentCamera
+local localPlayer = players.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
+local u10 = require(game.ReplicatedStorage.packets)
+
+local toggled = false
+local colorCorrection = nil
+local lastToggle = 0
+local currentTarget = nil
+
+local metavision = Instance.new("Sound")
+metavision.SoundId = "rbxassetid://114439653699592"
+
+local highlights = {}
+local indicatorBillboards = {}
+
+
 local trapDelay = 0.08
 local scriptActive = true
 local aimbotDistance = 200
 local aimbotShootTime = 0.265
 local stealLoop = 1
+
+local maxDistance = 350
+local maxAutoballHeight = 0.7
 
 local function isInGame()
 	if not scriptActive then return false end
@@ -306,6 +330,194 @@ local function Shoot()
 	end
 end
 
+local function getNearestTarget(position)
+	local nearest = nil
+	local shortest = math.huge
+
+	for _, player in pairs(players:GetPlayers()) do
+		if player ~= localPlayer and player.Team == localPlayer.Team then
+			local character = player.Character
+			if character and character:FindFirstChild("HumanoidRootPart") then
+				local dist = (character.HumanoidRootPart.Position - position).Magnitude
+				if dist < shortest then
+					nearest = character.HumanoidRootPart
+					shortest = dist
+				end
+			end
+		end
+    end
+
+	return nearest, shortest
+end
+
+local function updateAdornmentTarget()
+	if not toggled then return end
+
+	local target = mouse.Target
+	if target and (target.Name == "Agoal" or target.Name == "Bgoal") then
+		currentTarget = target
+		return
+	end
+
+	local hitPos = mouse.Hit.Position
+	local newTarget, dist = getNearestTarget(hitPos)
+	if dist and dist <= 10 and newTarget then
+		currentTarget = newTarget
+	else
+		currentTarget = nil
+	end
+end
+
+local function createIndicator(player)
+	if indicatorBillboards[player] then return end
+	local character = player.Character
+	if not character then return end
+	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not head then return end
+
+	local indicator = Instance.new("BillboardGui")
+	indicator.Name = "Indicator"
+	indicator.Size = UDim2.new(0, 200, 0, 60)
+	indicator.AlwaysOnTop = true
+	indicator.StudsOffset = Vector3.new(0, 3, 0)
+	indicator.Enabled = true
+	indicator.Parent = head
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameLabel.TextStrokeTransparency = 0.7
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.SourceSansBold
+	nameLabel.Parent = indicator
+
+	local styleLabel = Instance.new("TextLabel")
+	styleLabel.Name = "StyleLabel"
+	styleLabel.Size = UDim2.new(1, 0, 0.5, 0)
+	styleLabel.Position = UDim2.new(0, 0, 0.5, 0)
+	styleLabel.BackgroundTransparency = 1
+	styleLabel.TextColor3 = Color3.new(1, 1, 1)
+	styleLabel.TextStrokeTransparency = 0.7
+	styleLabel.TextScaled = true
+	styleLabel.Font = Enum.Font.SourceSansBold
+	styleLabel.Text = ""
+	styleLabel.Parent = indicator
+
+	local image = Instance.new("ImageLabel")
+	image.Name = "TargetIcon"
+	image.Size = UDim2.new(0, 24, 0, 24)
+	image.Position = UDim2.new(1, -28, 0, 2)
+	image.BackgroundTransparency = 1
+	image.Image = "rbxassetid://17408339338"
+	image.Visible = false
+	image.Parent = indicator
+
+	indicatorBillboards[player] = indicator
+end
+
+local function updateIndicators()
+	for player, billboard in pairs(indicatorBillboards) do
+		local character = player.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			local dist = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+			local nameLabel = billboard:FindFirstChild("NameLabel")
+			if nameLabel then
+				nameLabel.Text = string.format("%s (%.1f)", player.Name, dist)
+			end
+			local styleLabel = billboard:FindFirstChild("StyleLabel")
+			if styleLabel then
+				styleLabel.Text = "Style: " .. (player:GetAttribute("style") or "Unknown")
+			end
+			local image = billboard:FindFirstChild("TargetIcon")
+			if image then
+				local isCurrentTarget = currentTarget and character:FindFirstChild("HumanoidRootPart") == currentTarget
+				image.Visible = isCurrentTarget
+				if isCurrentTarget then
+					image.ImageColor3 = Color3.fromRGB(0, 255, 0)
+				else
+					image.ImageColor3 = Color3.fromRGB(255, 255, 255)
+				end
+			end
+		end
+	end
+end
+
+local function createHighlight(player)
+	if highlights[player] then return end
+	local character = player.Character
+	if not character then return end
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineColor = Color3.fromRGB(255, 105, 180)
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Adornee = character
+	highlight.Enabled = true
+	highlight.Parent = game.CoreGui
+	highlights[player] = highlight
+end
+
+local function clearAll()
+	if colorCorrection then
+		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 255, 255)}):Play()
+		task.delay(0.5, function()
+			if colorCorrection then colorCorrection:Destroy() colorCorrection = nil end
+		end)
+	end
+	for _, h in pairs(highlights) do h:Destroy() end
+	highlights = {}
+	for _, b in pairs(indicatorBillboards) do b:Destroy() end
+	indicatorBillboards = {}
+	currentTarget = nil
+end
+
+local function toggleEffect()
+	if tick() - lastToggle < 1 then return end
+	lastToggle = tick()
+	toggled = not toggled
+	print("Toggled effect:", toggled)
+
+	if toggled then
+		colorCorrection = Instance.new("ColorCorrectionEffect")
+		colorCorrection.TintColor = Color3.fromRGB(255, 255, 255)
+		colorCorrection.Parent = game.Lighting
+		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 105, 180)}):Play()
+        metavision:Play()
+
+		for _, player in pairs(players:GetPlayers()) do
+			if player ~= localPlayer and player.Team == localPlayer.Team then
+				createHighlight(player)
+				createIndicator(player)
+			end
+		end
+	else
+		clearAll()
+	end
+end
+
+local function sendKickToTarget()
+	if not toggled or not currentTarget then return end
+	local character = localPlayer.Character
+	local target = typeof(currentTarget) == "Instance" and currentTarget or currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
+	if not target then return end
+	local origin = character.HumanoidRootPart.Position
+	local displacement = target.Position - origin
+	local direction = displacement.Unit
+	local distance = displacement.Magnitude
+	local verticalScale = math.clamp(distance / maxDistance, 0, 1) * maxAutoballHeight
+	local v54 = character.HumanoidRootPart.CFrame.LookVector
+	local v56 = verticalScale
+	local v59 = direction + Vector3.new(0, v56, 0)
+	local rightDotProduct = (displacement.X * v54.Z - displacement.Z * v54.X)
+	local v64 = rightDotProduct > 0 and "left" or true
+	local minPower = 25
+	local maxPower = 100
+	local power = minPower + (maxPower - minPower) * ((distance * 1.5) / maxDistance)
+	u10.use.send({"kick", power, v64, v59})
+end
+
 local Window = Fluent:CreateWindow({
     Title = "Azure Latch " .. Fluent.Version,
     SubTitle = "by ghmaxx",
@@ -319,6 +531,7 @@ local Window = Fluent:CreateWindow({
 --Fluent provides Lucide Icons https://lucide.dev/icons/ for the tabs, icons are optional
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "" }),
+    Metavision = Window:AddTab({ Title = "Metavision", Icon = "eye" }),
     Keybinds = Window:AddTab({ Title = "Keybinds", Icon = "keyboard" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
@@ -333,7 +546,75 @@ do
         Duration = 10 -- Set to nil to make the notification not disappear
     })
 
+    Tabs.Metavision:AddParagraph({
+        Title = "Information",
+        Content = "Edit your metavision here.\nExpect improvements!"
+    })
 
+    
+    local MetavisionK = Tabs.Metavision:AddKeybind("Keybind", {
+        Title = "Metavision",
+        Mode = "Toggle", -- Always, Toggle, Hold
+        Default = "K", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+
+        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        Callback = function(Value)
+
+        end,
+    })
+
+    local AimbotK = Tabs.Metavision:AddKeybind("Keybind", {
+        Title = "Autokick",
+        Mode = "Toggle", -- Always, Toggle, Hold
+        Default = "E", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+
+        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        Callback = function(Value)
+
+        end,
+    })
+
+    MetavisionK:OnClick(function()
+         toggleEffect()
+    end)
+
+    AimbotK:OnClick(function()
+         sendKickToTarget()
+    end)
+
+    local AutokickHeight = Tabs.Metavision:AddSlider("Slider", {
+        Title = "Autokick Maxheight",
+        Description = "Adjust the max height",
+        Default = 0.7,
+        Min = 0.1,
+        Max = 1.5,
+        Rounding = 1,
+        Callback = function(Value)
+            print("Slider was changed:", Value)
+        end
+    })
+
+    AutokickHeight:OnChanged(function(Value)
+        print("Slider changed:", Value)
+        maxAutoballHeight = Value  
+    end)
+
+    local maxDistanceSlider = Tabs.Metavision:AddSlider("Slider", {
+        Title = "Autokick Maxdistance",
+        Description = "Adjust the max autokick distance",
+        Default = 350,
+        Min = 100,
+        Max = 1250,
+        Rounding = 1,
+        Callback = function(Value)
+            print("Slider was changed:", Value)
+        end
+    })
+
+    maxDistanceSlider:OnChanged(function(Value)
+        print("Slider changed:", Value)
+        maxDistance = Value  
+    end)
 
     Tabs.Main:AddParagraph({
         Title = "Information",
@@ -503,6 +784,13 @@ do
         print("Input updated:", Input.Value)
     end)
 end
+
+game:GetService("RunService").RenderStepped:Connect(function()
+	if toggled then
+		updateAdornmentTarget()
+		updateIndicators()
+	end
+end)
 
 
 -- Addons:
