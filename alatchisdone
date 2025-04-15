@@ -47,6 +47,219 @@ local stealLoop = 1
 local maxDistance = 350
 local maxAutoballHeight = 0.7
 
+local function getNearestTarget(position)
+	local nearest = nil
+	local shortest = math.huge
+
+	for _, player in pairs(players:GetPlayers()) do
+		if player ~= localPlayer and player.Team == localPlayer.Team then
+			local character = player.Character
+			if character and character:FindFirstChild("HumanoidRootPart") then
+				local dist = (character.HumanoidRootPart.Position - position).Magnitude
+				if dist < shortest then
+					nearest = character.HumanoidRootPart
+					shortest = dist
+				end
+			end
+		end
+	end
+
+	-- Check for Agoal and Bgoal
+	for _, goalName in ipairs({"Agoal", "Bgoal"}) do
+		local goal = workspace.map:FindFirstChild(goalName)
+		if goal then
+			local dist = (goal.Position - position).Magnitude
+			if dist < shortest then
+				nearest = goal
+				shortest = dist
+			end
+		end
+	end
+
+	return nearest, shortest
+end
+
+local function updateAdornmentTarget()
+	if not toggled then return end
+	local hitPos = mouse.Hit.Position
+	local newTarget, dist = getNearestTarget(hitPos)
+	if dist and dist <= 10 and newTarget then
+		currentTarget = newTarget
+	else
+		currentTarget = nil
+	end
+end
+
+local function createIndicator(player)
+	if indicatorBillboards[player] then return end
+	local character = player.Character
+	if not character then return end
+	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not head then return end
+
+	local indicator = Instance.new("BillboardGui")
+	indicator.Name = "Indicator"
+	indicator.Size = UDim2.new(0, 200, 0, 80)
+	indicator.AlwaysOnTop = true
+	indicator.StudsOffset = Vector3.new(0, 3, 0)
+	indicator.Enabled = true
+	indicator.Parent = head
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Size = UDim2.new(1, 0, 0.33, 0)
+	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameLabel.TextStrokeTransparency = 0.7
+	nameLabel.TextScaled = true
+	nameLabel.Font = Enum.Font.SourceSansBold
+	nameLabel.Parent = indicator
+
+	local styleLabel = Instance.new("TextLabel")
+	styleLabel.Name = "StyleLabel"
+	styleLabel.Size = UDim2.new(1, 0, 0.33, 0)
+	styleLabel.Position = UDim2.new(0, 0, 0.33, 0)
+	styleLabel.BackgroundTransparency = 1
+	styleLabel.TextColor3 = Color3.new(1, 1, 1)
+	styleLabel.TextStrokeTransparency = 0.7
+	styleLabel.TextScaled = true
+	styleLabel.Font = Enum.Font.SourceSansBold
+	styleLabel.Text = ""
+	styleLabel.Parent = indicator
+
+	local hasBallLabel = Instance.new("TextLabel")
+	hasBallLabel.Name = "HasBallLabel"
+	hasBallLabel.Size = UDim2.new(1, 0, 0.34, 0)
+	hasBallLabel.Position = UDim2.new(0, 0, 0.66, 0)
+	hasBallLabel.BackgroundTransparency = 1
+	hasBallLabel.TextColor3 = Color3.fromRGB(255, 64, 200)
+	hasBallLabel.TextStrokeTransparency = 0.2
+	hasBallLabel.TextScaled = true
+	hasBallLabel.Font = Enum.Font.SourceSansBold
+	hasBallLabel.Text = ""
+	hasBallLabel.Parent = indicator
+
+	local image = Instance.new("ImageLabel")
+	image.Name = "TargetIcon"
+	image.Size = UDim2.new(0, 24, 0, 24)
+	image.Position = UDim2.new(1, -28, 0, 2)
+	image.BackgroundTransparency = 1
+	image.Image = "rbxassetid://17408339338"
+	image.Visible = false
+	image.Parent = indicator
+
+	indicatorBillboards[player] = indicator
+end
+
+local function updateIndicators()
+	for player, billboard in pairs(indicatorBillboards) do
+		local character = player.Character
+		if character and character:FindFirstChild("HumanoidRootPart") then
+			local dist = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+			local nameLabel = billboard:FindFirstChild("NameLabel")
+			if nameLabel then
+				local teamPrefix = (player.Team == localPlayer.Team) and "(T) " or ""
+				nameLabel.Text = string.format("%s%s (%.1f)", teamPrefix, player.Name, dist)
+			end
+			local styleLabel = billboard:FindFirstChild("StyleLabel")
+			if styleLabel then
+				styleLabel.Text = "Style: " .. (player:GetAttribute("style") or "Unknown")
+			end
+			local hasBallLabel = billboard:FindFirstChild("HasBallLabel")
+			if hasBallLabel then
+				hasBallLabel.Text = player.Character:FindFirstChild("Ball") and "Holding" or ""
+			end
+			local image = billboard:FindFirstChild("TargetIcon")
+			if image then
+				local isCurrentTarget = currentTarget and (character:FindFirstChild("HumanoidRootPart") == currentTarget or character:FindFirstChild("Head") == currentTarget)
+				image.Visible = isCurrentTarget
+				if isCurrentTarget then
+					image.ImageColor3 = Color3.fromRGB(0, 255, 0)
+				else
+					image.ImageColor3 = Color3.fromRGB(255, 255, 255)
+				end
+			end
+		end
+	end
+end
+
+local function createHighlight(player)
+	if highlights[player] then return end
+	local character = player.Character
+	if not character then return end
+	local highlight = Instance.new("Highlight")
+	highlight.FillColor = Color3.fromRGB(255, 255, 255)
+	highlight.OutlineColor = Color3.fromRGB(255, 105, 180)
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Adornee = character
+	highlight.Enabled = true
+	highlight.Parent = game.CoreGui
+	highlights[player] = highlight
+end
+
+local function clearAll()
+	if colorCorrection then
+		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 255, 255)}):Play()
+		task.delay(0.5, function()
+			if colorCorrection then colorCorrection:Destroy() colorCorrection = nil end
+		end)
+	end
+	for _, h in pairs(highlights) do h:Destroy() end
+	highlights = {}
+	for _, b in pairs(indicatorBillboards) do b:Destroy() end
+	indicatorBillboards = {}
+	currentTarget = nil
+end
+
+local function toggleEffect()
+	if tick() - lastToggle < 1 then return end
+	lastToggle = tick()
+	toggled = not toggled
+	print("Toggled effect:", toggled)
+
+	if toggled then
+		colorCorrection = Instance.new("ColorCorrectionEffect")
+		colorCorrection.TintColor = Color3.fromRGB(255, 255, 255)
+		colorCorrection.Parent = game.Lighting
+		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 105, 180)}):Play()
+		metavision:Play()
+
+		for _, player in pairs(players:GetPlayers()) do
+			if player ~= localPlayer then
+				createHighlight(player)
+				createIndicator(player)
+			end
+		end
+	else
+		clearAll()
+	end
+end
+
+local function sendKickToTarget()
+	if not toggled or not currentTarget then return end
+	local character = localPlayer.Character
+	local target = typeof(currentTarget) == "Instance" and currentTarget or currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
+	if not target then return end
+	local origin = character.HumanoidRootPart.Position
+	local displacement = target.Position - origin
+	local direction = displacement.Unit
+	local distance = displacement.Magnitude
+	--local maxDistance = 350
+	local clampedDistance = math.clamp(distance, 0, maxDistance)
+	local verticalScale = (clampedDistance / maxDistance) * maxAutoballHeight
+	local v54 = character.HumanoidRootPart.CFrame.LookVector
+	local v56 = verticalScale
+	local v59 = direction + Vector3.new(0, v56, 0)
+	local rightDotProduct = (displacement.X * v54.Z - displacement.Z * v54.X)
+	local v64 = rightDotProduct > 0 and "left" or true
+	local minPower = 25
+	local maxPower = 100
+	local powerFactor = math.clamp((distance * 1.5) / maxDistance, 0, 1)
+	local power = minPower + (maxPower - minPower) * powerFactor
+	u10.use.send({"kick", power, v64, v59})
+end
+
 local function isInGame()
 	if not scriptActive then return false end
 	local LocalCharacter = player.Character
@@ -328,195 +541,6 @@ local function Shoot()
 	if Humanoid then
 		Humanoid.AutoRotate = true
 	end
-end
-
-local function getNearestTarget(position)
-	local nearest = nil
-	local shortest = math.huge
-
-	for _, player in pairs(players:GetPlayers()) do
-		if player ~= localPlayer and player.Team == localPlayer.Team then
-			local character = player.Character
-			if character and character:FindFirstChild("HumanoidRootPart") then
-				local dist = (character.HumanoidRootPart.Position - position).Magnitude
-				if dist < shortest then
-					nearest = character.HumanoidRootPart
-					shortest = dist
-				end
-			end
-		end
-    end
-
-	return nearest, shortest
-end
-
-local function updateAdornmentTarget()
-	if not toggled then return end
-
-	local target = mouse.Target
-	if target and (target.Name == "Agoal" or target.Name == "Bgoal") then
-		currentTarget = target
-		return
-	end
-
-	local hitPos = mouse.Hit.Position
-	local newTarget, dist = getNearestTarget(hitPos)
-	if dist and dist <= 10 and newTarget then
-		currentTarget = newTarget
-	else
-		currentTarget = nil
-	end
-end
-
-local function createIndicator(player)
-	if indicatorBillboards[player] then return end
-	local character = player.Character
-	if not character then return end
-	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
-	if not head then return end
-
-	local indicator = Instance.new("BillboardGui")
-	indicator.Name = "Indicator"
-	indicator.Size = UDim2.new(0, 200, 0, 60)
-	indicator.AlwaysOnTop = true
-	indicator.StudsOffset = Vector3.new(0, 3, 0)
-	indicator.Enabled = true
-	indicator.Parent = head
-
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Name = "NameLabel"
-	nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-	nameLabel.Position = UDim2.new(0, 0, 0, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.TextColor3 = Color3.new(1, 1, 1)
-	nameLabel.TextStrokeTransparency = 0.7
-	nameLabel.TextScaled = true
-	nameLabel.Font = Enum.Font.SourceSansBold
-	nameLabel.Parent = indicator
-
-	local styleLabel = Instance.new("TextLabel")
-	styleLabel.Name = "StyleLabel"
-	styleLabel.Size = UDim2.new(1, 0, 0.5, 0)
-	styleLabel.Position = UDim2.new(0, 0, 0.5, 0)
-	styleLabel.BackgroundTransparency = 1
-	styleLabel.TextColor3 = Color3.new(1, 1, 1)
-	styleLabel.TextStrokeTransparency = 0.7
-	styleLabel.TextScaled = true
-	styleLabel.Font = Enum.Font.SourceSansBold
-	styleLabel.Text = ""
-	styleLabel.Parent = indicator
-
-	local image = Instance.new("ImageLabel")
-	image.Name = "TargetIcon"
-	image.Size = UDim2.new(0, 24, 0, 24)
-	image.Position = UDim2.new(1, -28, 0, 2)
-	image.BackgroundTransparency = 1
-	image.Image = "rbxassetid://17408339338"
-	image.Visible = false
-	image.Parent = indicator
-
-	indicatorBillboards[player] = indicator
-end
-
-local function updateIndicators()
-	for player, billboard in pairs(indicatorBillboards) do
-		local character = player.Character
-		if character and character:FindFirstChild("HumanoidRootPart") then
-			local dist = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
-			local nameLabel = billboard:FindFirstChild("NameLabel")
-			if nameLabel then
-				local teamPrefix = (player.Team == localPlayer.Team) and "(T) " or ""
-				nameLabel.Text = string.format("%s%s (%.1f)", teamPrefix, player.Name, dist)
-			end
-			local styleLabel = billboard:FindFirstChild("StyleLabel")
-			if styleLabel then
-				styleLabel.Text = "Style: " .. (player:GetAttribute("style") or "Unknown")
-			end
-			local image = billboard:FindFirstChild("TargetIcon")
-			if image then
-				local isCurrentTarget = currentTarget and character:FindFirstChild("HumanoidRootPart") == currentTarget
-				image.Visible = isCurrentTarget
-				if isCurrentTarget then
-					image.ImageColor3 = Color3.fromRGB(0, 255, 0)
-				else
-					image.ImageColor3 = Color3.fromRGB(255, 255, 255)
-				end
-			end
-		end
-	end
-end
-
-local function createHighlight(player)
-	if highlights[player] then return end
-	local character = player.Character
-	if not character then return end
-	local highlight = Instance.new("Highlight")
-	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.OutlineColor = Color3.fromRGB(255, 105, 180)
-	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	highlight.Adornee = character
-	highlight.Enabled = true
-	highlight.Parent = game.CoreGui
-	highlights[player] = highlight
-end
-
-local function clearAll()
-	if colorCorrection then
-		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 255, 255)}):Play()
-		task.delay(0.5, function()
-			if colorCorrection then colorCorrection:Destroy() colorCorrection = nil end
-		end)
-	end
-	for _, h in pairs(highlights) do h:Destroy() end
-	highlights = {}
-	for _, b in pairs(indicatorBillboards) do b:Destroy() end
-	indicatorBillboards = {}
-	currentTarget = nil
-end
-
-local function toggleEffect()
-	if tick() - lastToggle < 1 then return end
-	lastToggle = tick()
-	toggled = not toggled
-	print("Toggled effect:", toggled)
-
-	if toggled then
-		colorCorrection = Instance.new("ColorCorrectionEffect")
-		colorCorrection.TintColor = Color3.fromRGB(255, 255, 255)
-		colorCorrection.Parent = game.Lighting
-		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 105, 180)}):Play()
-        metavision:Play()
-
-		for _, player in pairs(players:GetPlayers()) do
-			if player ~= localPlayer then
-				createHighlight(player)
-				createIndicator(player)
-			end
-		end
-	else
-		clearAll()
-	end
-end
-
-local function sendKickToTarget()
-	if not toggled or not currentTarget then return end
-	local character = localPlayer.Character
-	local target = typeof(currentTarget) == "Instance" and currentTarget or currentTarget.Character and currentTarget.Character:FindFirstChild("HumanoidRootPart")
-	if not target then return end
-	local origin = character.HumanoidRootPart.Position
-	local displacement = target.Position - origin
-	local direction = displacement.Unit
-	local distance = displacement.Magnitude
-	local verticalScale = math.clamp(distance / maxDistance, 0, 1) * maxAutoballHeight
-	local v54 = character.HumanoidRootPart.CFrame.LookVector
-	local v56 = verticalScale
-	local v59 = direction + Vector3.new(0, v56, 0)
-	local rightDotProduct = (displacement.X * v54.Z - displacement.Z * v54.X)
-	local v64 = rightDotProduct > 0 and "left" or true
-	local minPower = 25
-	local maxPower = 100
-	local power = minPower + (maxPower - minPower) * ((distance * 1.5) / maxDistance)
-	u10.use.send({"kick", power, v64, v59})
 end
 
 local Window = Fluent:CreateWindow({
