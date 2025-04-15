@@ -425,7 +425,8 @@ local function updateIndicators()
 			local dist = (character.HumanoidRootPart.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
 			local nameLabel = billboard:FindFirstChild("NameLabel")
 			if nameLabel then
-				nameLabel.Text = string.format("%s (%.1f)", player.Name, dist)
+				local teamPrefix = (player.Team == localPlayer.Team) and "(T) " or ""
+				nameLabel.Text = string.format("%s%s (%.1f)", teamPrefix, player.Name, dist)
 			end
 			local styleLabel = billboard:FindFirstChild("StyleLabel")
 			if styleLabel then
