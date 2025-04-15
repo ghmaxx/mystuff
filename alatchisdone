@@ -10,8 +10,6 @@ local TextChatService = game:GetService("TextChatService")
 local player = Players.LocalPlayer
 local MapFolder = workspace:WaitForChild("map")
 
-_G.ALVERSION = "2.0.0"
-
 -- Goal references
 local GkBarrier = MapFolder:FindFirstChild("gkbarriar")
 local AGoal = MapFolder:FindFirstChild("Agoal")
@@ -38,7 +36,7 @@ metavision.SoundId = "rbxassetid://114439653699592"
 
 local highlights = {}
 local indicatorBillboards = {}
-
+local lines = {}
 
 local trapDelay = 0.08
 local scriptActive = true
@@ -48,6 +46,8 @@ local stealLoop = 1
 
 local maxDistance = 350
 local maxAutoballHeight = 0.7
+local metavisionColor = Color3.fromRGB(255, 105, 180)
+local metavisionDirection = true
 
 local function getNearestTarget(position)
 	local nearest = nil
@@ -197,6 +197,54 @@ local function createHighlight(player)
 	highlight.Adornee = character
 	highlight.Enabled = true
 	highlight.Parent = game.CoreGui
+    if metavisionDirection then
+        if not character then
+            warn("Character not found.")
+            return
+        end
+
+        local torso = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Torso")
+        if not torso then
+            warn("Torso or HumanoidRootPart not found.")
+            return
+        end
+
+        -- Settings
+        local length = 1000
+        local width = 0.1
+        local height = 0.1
+        local transparency = 0.5
+        local lineName = character.Name .. "Line"
+
+        -- Remove existing line if already created
+        local existing = workspace:FindFirstChild(lineName)
+        if existing then
+            existing:Destroy()
+        end
+
+        -- Create the line
+        local line = Instance.new("Part")
+        line.Name = lineName
+        line.Size = Vector3.new(width, height, length)
+        line.Transparency = transparency
+        line.Color = Color3.new(1, 1, 1)
+        line.Material = Enum.Material.SmoothPlastic
+        line.CanCollide = false
+        line.Anchored = false
+        line.Massless = true
+        line.Parent = workspace
+
+        -- Position the line in front of the torso
+        line.CFrame = torso.CFrame * CFrame.new(0, 0, -length / 2)
+
+        -- Weld the line to the torso
+        local weld = Instance.new("WeldConstraint")
+        weld.Part0 = torso
+        weld.Part1 = line
+        weld.Parent = line
+
+        lines[player] = line
+    end
 	highlights[player] = highlight
 end
 
@@ -211,6 +259,8 @@ local function clearAll()
 	highlights = {}
 	for _, b in pairs(indicatorBillboards) do b:Destroy() end
 	indicatorBillboards = {}
+    for _, l in pairs(lines) do l:Destroy() end
+    lines = {}
 	currentTarget = nil
 end
 
@@ -224,7 +274,7 @@ local function toggleEffect()
 		colorCorrection = Instance.new("ColorCorrectionEffect")
 		colorCorrection.TintColor = Color3.fromRGB(255, 255, 255)
 		colorCorrection.Parent = game.Lighting
-		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = Color3.fromRGB(255, 105, 180)}):Play()
+		tweenService:Create(colorCorrection, TweenInfo.new(0.5), {TintColor = metavisionColor}):Play()
 		metavision:Play()
 
 		for _, player in pairs(players:GetPlayers()) do
@@ -546,18 +596,18 @@ local function Shoot()
 end
 
 local Window = Fluent:CreateWindow({
-    Title = "Azure Latch " .. _G.ALVERSION,
+    Title = "Azure Latch " .. Fluent.Version,
     SubTitle = "by ghmaxx",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
-    Acrylic = false, -- The blur may be detectable, setting this to false disables blur entirely
+    Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
     Theme = "Dark",
     MinimizeKey = Enum.KeyCode.LeftControl -- Used when theres no MinimizeKeybind
 })
 
 --Fluent provides Lucide Icons https://lucide.dev/icons/ for the tabs, icons are optional
 local Tabs = {
-    Main = Window:AddTab({ Title = "Main", Icon = "" }),
+    Main = Window:AddTab({ Title = "Main", Icon = "apple" }),
     Metavision = Window:AddTab({ Title = "Metavision", Icon = "eye" }),
     Keybinds = Window:AddTab({ Title = "Keybinds", Icon = "keyboard" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
@@ -577,7 +627,22 @@ do
         Title = "Information",
         Content = "Edit your metavision here.\nExpect improvements!"
     })
+    
+    local Colorpicker = Tabs.Metavision:AddColorpicker("MetavisionColor", {
+        Title = "MetavisionColor",
+        Default = Color3.fromRGB(255, 105, 180)
+    })
 
+    Colorpicker:OnChanged(function()
+        print("Colorpicker changed:", Colorpicker.Value)
+        metavisionColor = Colorpicker.Value
+    end)
+
+    local DirectionToggle = Tabs.Metavision:AddToggle("Directions", {Title = "Directions", Default = true })
+
+    DirectionToggle:OnChanged(function()
+        metavisionDirection = Options.Directions.Value
+    end)
     
     local MetavisionK = Tabs.Metavision:AddKeybind("Keybind", {
         Title = "Metavision",
