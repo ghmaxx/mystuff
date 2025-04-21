@@ -716,6 +716,18 @@ do
         Content = "This section contains the main exploits.\nExpect improvements!"
     })
 
+    local Autogoal = Tabs.Main:AddToggle("Autogoal", {Title = "Enable Autogoal", Default = false })
+
+    Autogoal:OnChanged(function()
+        print("Toggle changed:", Options.Autogoal.Value)
+        task.spawn(function()
+            while Options.Autogoal.Value == true do
+                DoGoal()
+                wait(2.5)  
+            end
+        end)
+    end)
+
     Tabs.Main:AddButton({
         Title = "Goal",
         Description = "Make a goal.",
