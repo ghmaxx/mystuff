@@ -984,7 +984,6 @@ do
         Mode = "Toggle",
         Default = "none", 
 
-        -
         Callback = function(Value)
 
         end,
