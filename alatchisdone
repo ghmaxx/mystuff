@@ -28,7 +28,7 @@ local u4 = game:GetService("ReplicatedStorage")
 local u23 = require(u4.Wiki)
 local u22 = require(u4.packets)
 
-_G.ALVERSION = "2.0.0"
+_G.ALVERSION = "3.0.0"
 
 local u10 = require(game.ReplicatedStorage.packets)
 
@@ -658,36 +658,6 @@ do
     DirectionToggle:OnChanged(function()
         metavisionDirection = Options.Directions.Value
     end)
-    
-    local MetavisionK = Tabs.Metavision:AddKeybind("Keybind", {
-        Title = "Metavision",
-        Mode = "Toggle", -- Always, Toggle, Hold
-        Default = "K", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
-
-        -- Occurs when the keybind is clicked, Value is `true`/`false`
-        Callback = function(Value)
-
-        end,
-    })
-
-    local AimbotK = Tabs.Metavision:AddKeybind("Keybind", {
-        Title = "Autokick",
-        Mode = "Toggle", -- Always, Toggle, Hold
-        Default = "E", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
-
-        -- Occurs when the keybind is clicked, Value is `true`/`false`
-        Callback = function(Value)
-
-        end,
-    })
-
-    MetavisionK:OnClick(function()
-         toggleEffect()
-    end)
-
-    AimbotK:OnClick(function()
-         sendKickToTarget()
-    end)
 
     local AutokickHeight = Tabs.Metavision:AddSlider("Slider", {
         Title = "Autokick Maxheight",
@@ -701,11 +671,6 @@ do
         end
     })
 
-    AutokickHeight:OnChanged(function(Value)
-        print("Slider changed:", Value)
-        maxAutoballHeight = Value  
-    end)
-
     local maxDistanceSlider = Tabs.Metavision:AddSlider("Slider", {
         Title = "Autokick Maxdistance",
         Description = "Adjust the max autokick distance",
@@ -717,6 +682,40 @@ do
             print("Slider was changed:", Value)
         end
     })
+    
+    local MetavisionK = Tabs.Metavision:AddKeybind("Keybind", {
+        Title = "Metavision",
+        Mode = "Toggle", 
+        Default = "K", 
+
+        Callback = function(Value)
+
+        end,
+    })
+
+    local AimbotK = Tabs.Metavision:AddKeybind("Keybind", {
+        Title = "Autokick",
+        Mode = "Toggle",
+        Default = "E", 
+
+        Callback = function(Value)
+
+        end,
+    })
+
+    MetavisionK:OnClick(function()
+         toggleEffect()
+    end)
+
+    AimbotK:OnClick(function()
+         sendKickToTarget()
+    end)
+
+
+    AutokickHeight:OnChanged(function(Value)
+        print("Slider changed:", Value)
+        maxAutoballHeight = Value  
+    end)
 
     maxDistanceSlider:OnChanged(function(Value)
         print("Slider changed:", Value)
@@ -775,6 +774,55 @@ do
             wait()
             LocalCharacter.PrimaryPart.CFrame = cCFrame
         end
+    end)
+
+    local ReachToggle = Tabs.Main:AddToggle("ReachToggle", {
+        Title = "Toggle Reach",
+        Description = "Enable reach, default is disabled.",
+    })
+
+    local reachValue = 5
+
+    local ReachSlider = Tabs.Main:AddSlider("ReachSlider", {
+        Title = "Reach",
+        Description = "Adjust your reach, reach is calculated by studs.\nDisabled by default.",
+        Default = 5,
+        Min = 3,
+        Max = 30,
+        Rounding = 1,
+        Callback = function(Value)
+            
+        end
+    })
+
+    ReachSlider:OnChanged(function(Value)
+        print("Slider changed:", Value)
+        reachValue = Value
+    end)
+
+    ReachToggle:OnChanged(function()
+        task.spawn(function()
+            while Options.ReachToggle.Value == true do
+                if isInGame() then
+                    local reachValue = Options.ReachSlider.Value
+                    print(reachValue)
+                    local ball = workspace.Terrain:FindFirstChild("Ball")
+                    local ballexist
+                    if ball then ballexist = true else ballexist = false end
+                        if ballexist then
+                        local LocalCharacter = player.Character or player.CharacterAdded:Wait()
+                        local distanceFromBall = (player.Character.HumanoidRootPart.Position - ball.Position).Magnitude
+                        print(distanceFromBall)
+                        if tonumber(distanceFromBall) <= tonumber(reachValue) then
+                            if ball then
+                                u22.findBall.send()
+                            end
+                        end
+                    end
+                end
+                wait()
+            end
+        end)
     end)
 
     local CFWSS = Tabs.Main:AddSlider("Slider", {
@@ -888,17 +936,15 @@ do
 
     local GoalK = Tabs.Keybinds:AddKeybind("Keybind", {
         Title = "Goal",
-        Mode = "Toggle", -- Always, Toggle, Hold
-        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+        Mode = "Toggle", 
+        Default = "none", 
 
-        -- Occurs when the keybind is clicked, Value is `true`/`false`
+    
         Callback = function(Value)
 
         end,
     })
 
-    -- OnClick is only fired when you press the keybind and the mode is Toggle
-    -- Otherwise, you will have to use Keybind:GetState()
     GoalK:OnClick(function()
          DoGoal()
     end)
@@ -906,16 +952,13 @@ do
 
     local TrapK = Tabs.Keybinds:AddKeybind("Keybind", {
         Title = "Trap",
-        Mode = "Toggle", -- Always, Toggle, Hold
-        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+        Mode = "Toggle",
+        Default = "none",
 
-        -- Occurs when the keybind is clicked, Value is `true`/`false`
         Callback = function(Value)
         end,
     })
 
-    -- OnClick is only fired when you press the keybind and the mode is Toggle
-    -- Otherwise, you will have to use Keybind:GetState()
     TrapK:OnClick(function()
          DoTrap()
     end)
@@ -923,17 +966,14 @@ do
 
     local StealK = Tabs.Keybinds:AddKeybind("Keybind", {
         Title = "Steal",
-        Mode = "Toggle", -- Always, Toggle, Hold
-        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+        Mode = "Toggle",
+        Default = "none", 
 
-        -- Occurs when the keybind is clicked, Value is `true`/`false`
         Callback = function(Value)
 
         end,
     })
 
-    -- OnClick is only fired when you press the keybind and the mode is Toggle
-    -- Otherwise, you will have to use Keybind:GetState()
     StealK:OnClick(function()
          StealBall()
     end)
@@ -941,17 +981,16 @@ do
     
     local ShootK = Tabs.Keybinds:AddKeybind("Keybind", {
         Title = "Aimbot Shot",
-        Mode = "Toggle", -- Always, Toggle, Hold
-        Default = "none", -- String as the name of the keybind (MB1, MB2 for mouse buttons)
+        Mode = "Toggle",
+        Default = "none", 
 
-        -- Occurs when the keybind is clicked, Value is `true`/`false`
+        -
         Callback = function(Value)
 
         end,
     })
 
-    -- OnClick is only fired when you press the keybind and the mode is Toggle
-    -- Otherwise, you will have to use Keybind:GetState()
+    --
     ShootK:OnClick(function()
          Shoot()
     end)
@@ -980,25 +1019,13 @@ game:GetService("RunService").RenderStepped:Connect(function()
 	end
 end)
 
-
--- Addons:
--- SaveManager (Allows you to have a configuration system)
--- InterfaceManager (Allows you to have a interface managment system)
-
--- Hand the library over to our managers
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
 SaveManager:IgnoreThemeSettings()
 
--- You can add indexes of elements the save manager should ignore
 SaveManager:SetIgnoreIndexes({})
 
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
 InterfaceManager:SetFolder("FluentScriptHub")
 SaveManager:SetFolder("FluentScriptHub/specific-game")
 
@@ -1014,6 +1041,4 @@ Fluent:Notify({
     Duration = 8
 })
 
--- You can use the SaveManager:LoadAutoloadConfig() to load a config
--- which has been marked to be one that auto loads!
 SaveManager:LoadAutoloadConfig()
