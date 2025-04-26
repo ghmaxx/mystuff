@@ -622,6 +622,7 @@ local Window = Fluent:CreateWindow({
 --Fluent provides Lucide Icons https://lucide.dev/icons/ for the tabs, icons are optional
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "apple" }),
+    Single = Window:AddTab({ Title = "Single", Icon = "mouse-pointer-click" }),
     Metavision = Window:AddTab({ Title = "Metavision", Icon = "eye" }),
     Keybinds = Window:AddTab({ Title = "Keybinds", Icon = "keyboard" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
@@ -727,8 +728,66 @@ do
         Content = "This section contains the main exploits.\nExpect improvements!"
     })
 
-    local Autogoal = Tabs.Main:AddToggle("Autogoal", {Title = "Enable Autogoal", Default = false })
-    local AutoCF = Tabs.Main:AddToggle("AutoCF", {Title = "Enable AutoCF", Default = false })
+    local Autogoal = Tabs.Main:AddToggle("Autogoal", {Title = "Autogoal", Description = "Score automatically without input", Default = false })
+    local AutoCF = Tabs.Main:AddToggle("AutoCF", {Title = "Autoposition", Default = false })
+
+    local PositionDropdown = Tabs.Main:AddDropdown("PositionDropdown", {
+        Title = "Positions",
+        Description = "Select your position on the field.",
+        Values = {"CF", "RW", "LW", "CM", "GK"},
+        Multi = false,
+        Default = 1,
+    })
+
+    local TeamDropdown = Tabs.Main:AddDropdown("TeamDropdown", {
+        Title = "Teams",
+        Description = "Select your team.",
+        Values = {"A", "B", "Random"},
+        Multi = false,
+        Default = 1,
+    })
+    
+    local styleDropdown = Tabs.Main:AddDropdown("StyleDropdown", {
+        Title = "Styles",
+        Description = "Select your style. \nMust have style.",
+        Values = {"isagi", "nagi", "shidou", "sae", "donlorenzo", "rin", "kaiser"},
+        Multi = false,
+    })
+
+    styleDropdown:OnChanged(function(Value)
+        print("picked style:", Value)
+        if Value then
+            u22.changeStyle.send(tostring(Value))
+            local LocalCharacter = player.Character
+            local cCFrame = LocalCharacter.PrimaryPart.CFrame
+            if not LocalCharacter then return false end
+            local StateFolder = LocalCharacter:FindFirstChild("state")
+            if not StateFolder then return false end
+            local pTeam = StateFolder:FindFirstChild("team")
+            local pRole = StateFolder:FindFirstChild("role")
+            if not isInGame() then return end
+            wait(.25)
+            u22.selectRole.send({
+                ["index"] = table.find(u23.teamroles, pRole.Value),
+                ["t"] = pTeam.Value
+            })
+            LocalCharacter.Humanoid.Health = 0
+            wait()
+            LocalCharacter.PrimaryPart.CFrame = cCFrame
+        end
+    end)
+
+    local CFWSS = Tabs.Main:AddSlider("Slider", {
+        Title = "CFrame Walkspeed",
+        Description = "Adjust the walkspeed",
+        Default = 1,
+        Min = 0,
+        Max = 5,
+        Rounding = 1,
+        Callback = function(Value)
+            print("Slider was changed:", Value)
+        end
+    })
     
     AutoCF:OnChanged(function()
         print("Toggle changed:", Options.AutoCF.Value)
@@ -737,9 +796,13 @@ do
                 if not isInGame() then
                     local randomTeam = math.random(1,2)
                     local chosenTeam
-                    if randomTeam == 1 then chosenTeam = "A" elseif randomTeam == 2 then chosenTeam = "B" end
+                    if Options.TeamDropdown.Value == "Random" then
+                        if randomTeam == 1 then chosenTeam = "A" elseif randomTeam == 2 then chosenTeam = "B" end
+                        else
+                        chosenTeam = Options.TeamDropdown.Value
+                    end
                     u22.selectRole.send({
-                        ["index"] = table.find(u23.teamroles, "CF"),
+                        ["index"] = table.find(u23.teamroles, Options.PositionDropdown.Value),
                         ["t"] = chosenTeam
                     })
                 end
@@ -758,7 +821,7 @@ do
         end)
     end)
 
-    Tabs.Main:AddButton({
+    Tabs.Single:AddButton({
         Title = "Goal",
         Description = "Make a goal.",
         Callback = function()
@@ -766,7 +829,7 @@ do
         end
     })
 
-    Tabs.Main:AddButton({
+    Tabs.Single:AddButton({
         Title = "Trap ball",
         Description = "Control the ball.",
         Callback = function()
@@ -774,7 +837,7 @@ do
         end
     })
 
-    Tabs.Main:AddButton({
+    Tabs.Single:AddButton({
         Title = "Steal ball",
         Description = "Steal the ball.",
         Callback = function()
@@ -782,7 +845,7 @@ do
         end
     })
 
-    Tabs.Main:AddButton({
+    Tabs.Single:AddButton({
         Title = "Shoot ball",
         Description = "Shoot the ball (aim at goal).",
         Callback = function()
@@ -790,8 +853,8 @@ do
         end
     })
 
-    local Toggle = Tabs.Main:AddToggle("CrowdToggle", {Title = "Crowd", Default = true })
     local CollisionToggle = Tabs.Main:AddToggle("CollisionToggle", {Title = "Collision Boxes", Default = false })
+    local Toggle = Tabs.Main:AddToggle("CrowdToggle", {Title = "Crowd", Default = true })
 
     CollisionToggle:OnChanged(function()
         DisableCollisionBoxesC(Options.CollisionToggle.Value)
@@ -803,18 +866,6 @@ do
     end)
     
     local CFWS = Tabs.Main:AddToggle("CFrameWS", {Title = "Enable CFrame Walkspeed", Default = false })
-
-    local CFWSS = Tabs.Main:AddSlider("Slider", {
-        Title = "CFrame Walkspeed",
-        Description = "Adjust the walkspeed",
-        Default = 1,
-        Min = 0,
-        Max = 5,
-        Rounding = 1,
-        Callback = function(Value)
-            print("Slider was changed:", Value)
-        end
-    })
 
     local CFsliderv = 1
 
