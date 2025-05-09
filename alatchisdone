@@ -25,7 +25,7 @@ local localPlayer = players.LocalPlayer
 local mouse = localPlayer:GetMouse()
 
 local u4 = game:GetService("ReplicatedStorage")
-local u23 = require(u4.Wiki)
+local u23 = require(u4.wiki)
 local u22 = require(u4.packets)
 
 _G.ALVERSION = "3.0.0"
